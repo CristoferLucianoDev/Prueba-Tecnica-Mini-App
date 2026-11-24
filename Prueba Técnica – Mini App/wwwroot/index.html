@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Libros</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; color: #1b1b1b; }
+    h1 { font-size: 1.5rem; }
+    form { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    input { flex: 1; padding: .5rem; font: inherit; }
+    button { padding: .5rem 1rem; font: inherit; cursor: pointer; }
+    ul { padding-left: 1.25rem; }
+    #mensaje { min-height: 1.5rem; color: #555; }
+    #mensaje.error { color: #b00020; }
+  </style>
+</head>
+<body>
+  <h1>Libros</h1>
+
+  <form id="formulario">
+    <label for="titulo" hidden>Título</label>
+    <input id="titulo" maxlength="100" required placeholder="Título del libro">
+    <button type="submit">Agregar</button>
+  </form>
+
+  <p id="mensaje" role="status" aria-live="polite"></p>
+  <ul id="lista"></ul>
+
+  <script>
+    const API = '/api/Book';
+    const lista = document.getElementById('lista');
+    const mensaje = document.getElementById('mensaje');
+    const formulario = document.getElementById('formulario');
+    const campoTitulo = document.getElementById('titulo');
+
+    // Muestra un mensaje de estado; `esError` lo marca en rojo.
+    function avisar(texto, esError = false) {
+      mensaje.textContent = texto;
+      mensaje.classList.toggle('error', esError);
+    }
+
+    // Pide los libros a la API y los pinta con textContent (evita inyección de HTML).
+    async function cargarLibros() {
+      try {
+        const respuesta = await fetch(API);
+        if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
+        const libros = await respuesta.json();
+        lista.replaceChildren(...libros.map(libro => {
+          const item = document.createElement('li');
+          item.textContent = libro.title;
+          return item;
+        }));
+        if (libros.length === 0) avisar('Aún no hay libros.');
+      } catch (error) {
+        avisar(`No se pudieron cargar los libros: ${error.message}`, true);
+      }
+    }
+
+    // El endpoint recibe el título como string JSON crudo en el cuerpo.
+    formulario.addEventListener('submit', async evento => {
+      evento.preventDefault();
+      try {
+        const respuesta = await fetch(`${API}/create-book`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(campoTitulo.value.trim())
+        });
+        if (!respuesta.ok) throw new Error(await respuesta.text() || `HTTP ${respuesta.status}`);
+        campoTitulo.value = '';
+        avisar('Libro creado.');
+        await cargarLibros();
+      } catch (error) {
+        avisar(`No se pudo crear el libro: ${error.message}`, true);
+      }
+    });
+
+    cargarLibros();
+  </script>
+</body>
+</html>
